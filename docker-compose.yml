@@ -25,7 +25,7 @@ services:
       GIT_PRIVATE_KEY: ${GIT_PRIVATE_KEY:?请在环境变量中配置 SSH 私钥}
       GIT_KNOWN_HOSTS: ${GIT_KNOWN_HOSTS:?请在环境变量中配置 SSH 主机公钥}
     ports:
-      - "8080:8080"
+      - "8188:8080"
     healthcheck:
       test:
         - CMD
