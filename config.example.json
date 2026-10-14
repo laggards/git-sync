@@ -1,0 +1,25 @@
+{
+  "allowed_ips": [
+    "192.0.2.10/32",
+    "127.0.0.1/32",
+    "::1/128"
+  ],
+  "projects": [
+    {
+      "id": "example-web",
+      "name": "Example Web",
+      "repository": "git@git.example.com:team/example-web.git",
+      "branch": "main",
+      "workspace": "/workspace/example-web",
+      "url": "https://web.example.com"
+    },
+    {
+      "id": "example-api",
+      "name": "Example API",
+      "repository": "git@git.example.com:team/example-api.git",
+      "branch": "main",
+      "workspace": "/workspace/example-api",
+      "url": "https://api.example.com"
+    }
+  ]
+}

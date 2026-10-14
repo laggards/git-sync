@@ -1,0 +1,10 @@
+services:
+  git-sync:
+    image: git-sync:local
+    build: .
+    ports:
+      - "0.0.0.0:8080:8080"
+    volumes:
+      - ./config.json:/config/config.json:rw
+      - ./state:/state
+      - ./workspaces:/workspace

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="page-token" content="{{ page_token }}">
+  <title>git sync
+  </title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body>
+  <main>
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">项目</th>
+          <th scope="col">仓库地址</th>
+          <th scope="col">分支</th>
+          <th scope="col">工作目录</th>
+          <th scope="col">工作区状态</th>
+          <th scope="col">最后更新时间</th>
+          <th scope="col">执行结果</th>
+          <th scope="col">操作</th>
+        </tr>
+      </thead>
+      <tbody id="project-list">
+        {% for project in projects %}
+        <tr data-project-id="{{ project.id }}">
+          <th scope="row">{{ project.name }}</th>
+          <td>{{ project.repository }}</td>
+          <td><select class="branch-select" aria-label="&#20999;&#25442;&#39033;&#30446;&#20998;&#25903;" disabled><option value="{{ project.branch }}">{{ project.branch }}</option></select> <button class="load-branches link-button" type="button" data-project-id="{{ project.id }}">&#35835;&#21462;&#20998;&#25903;</button></td>
+          <td>{{ project.workspace_relative }}</td>
+          <td>{{ project.workspace_status }}</td>
+          <td>尚无记录</td>
+          <td>等待读取</td>
+          <td class="project-actions">
+            <button class="link-button" type="button" disabled>&#25289;&#21462;&#20195;&#30721;</button>
+            {% if project.url %}
+            <a class="project-link" href="{{ project.url }}" target="_blank" rel="noopener noreferrer">访问项目</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not projects %}
+        <tr><td colspan="8">暂无配置项目，请在 config.json 中添加项目配置后重启面板。</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+    </div>
+    <section id="project-logs" aria-label="同步日志">
+      <div class="logs-heading">
+        <h3>同步日志</h3>
+        <button id="clear-logs" class="link-button" type="button">&#28165;&#31354;&#26085;&#24535;</button>
+      </div>
+      <textarea id="sync-log" rows="24" readonly spellcheck="false" aria-label="所有项目历史同步日志">暂无同步日志</textarea>
+    </section>
+  </main>
+</body>
+</html>
