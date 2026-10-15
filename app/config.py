@@ -31,6 +31,7 @@ PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]*$")
 SCP_REPOSITORY_RE = re.compile(r"^git@([^/:\s]+):([^\s]+)$")
 ALLOWED_KEYS = {"id", "name", "repository", "branch", "workspace", "url"}
 _CONFIG_WRITE_LOCK = threading.RLock()
+LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR"}
 
 
 def _required_string(entry: dict, key: str) -> str:
@@ -211,6 +212,20 @@ def load_allowed_ips(path: str) -> tuple[ipaddress.IPv4Network | ipaddress.IPv6N
         except ValueError as exc:
             raise ConfigError(f"allowed_ips[{index}] is not a valid IP address or CIDR network") from exc
     return tuple(networks)
+
+
+def load_log_level(path: str) -> str:
+    """Load the minimum task log level, defaulting to INFO."""
+    try:
+        raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ConfigError(f"cannot read logging configuration: {exc.__class__.__name__}") from exc
+    if not isinstance(raw, dict):
+        raise ConfigError("configuration must be a JSON object")
+    value = raw.get("log_level", "INFO")
+    if not isinstance(value, str) or value.upper() not in LOG_LEVELS:
+        raise ConfigError("log_level must be DEBUG, INFO, WARNING, or ERROR")
+    return value.upper()
 
 
 def update_project_branch(path: str, project_id: str, branch: str) -> None:

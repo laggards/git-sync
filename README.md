@@ -5,6 +5,7 @@ Git 同步面板。网页可触发已配置项目的同步并查看日志；项�
 ## 部署
 
 1. 将 `config.example.json` 复制到服务器 `/data/git-sync/config.json`，填写允许访问的 IP 和项目。
+   `log_level` 控制任务日志的最低显示等级：`DEBUG` 显示阶段耗时、Git 命令耗时和拉取进度；`INFO` 显示常规同步信息；`WARNING` 仅显示警告和错误；`ERROR` 仅显示错误。默认值为 `INFO`。
 2. 在 Docker 宿主机创建并授权持久化目录：
 
    ```sh

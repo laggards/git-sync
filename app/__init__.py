@@ -7,7 +7,7 @@ import threading
 from flask import Flask, abort, jsonify, render_template, request
 from werkzeug.exceptions import HTTPException, InternalServerError
 
-from app.config import load_allowed_ips, load_projects
+from app.config import load_allowed_ips, load_log_level, load_projects
 from app.credentials import GitCredentials
 from app.git_client import GitClient
 from app.jobs import JobStore
@@ -46,6 +46,7 @@ def create_app(
 
     projects = load_projects(config_path, workspace_root)
     allowed_networks = load_allowed_ips(config_path)
+    log_level = load_log_level(config_path)
 
     @app.before_request
     def enforce_client_ip_allowlist():
@@ -63,7 +64,7 @@ def create_app(
             abort(403, description="client IP is not allowlisted")
 
     store = JobStore(state_dir)
-    client = git_client or GitClient(workspace_root=workspace_root)
+    client = git_client or GitClient(workspace_root=workspace_root, log_level=log_level)
     credentials = credential_factory or GitCredentials.from_environment
     runner = UpdateRunner(projects, store, client, credential_factory=credentials)
     runner.recover()

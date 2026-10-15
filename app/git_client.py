@@ -34,11 +34,13 @@ class GitClient:
         timeout_seconds: float = 300,
         workspace_root: str | Path = "/workspace",
         popen_factory: Callable = subprocess.Popen,
+        log_level: str = "INFO",
     ):
         self.binary = binary
         self.timeout_seconds = timeout_seconds
         self.workspace_root = Path(workspace_root)
         self._popen = popen_factory
+        self.log_level = log_level.upper()
 
     def list_branches(self, project: Project, credentials: GitCredentials) -> list[str]:
         output = self._run(
@@ -62,19 +64,19 @@ class GitClient:
         on_process: Callable[[int | None], None] | None = None,
     ) -> SyncResult:
         sync_started = time.monotonic()
-        _emit(on_output, f"[sync] start project={project.id} branch={project.branch} workspace={project.workspace}")
+        _emit(on_output, f"[sync] start project={project.id} branch={project.branch} workspace={project.workspace}", "INFO", self.log_level)
         try:
             result = self._sync(project, credentials, on_output, on_process)
         except Exception as exc:
             _emit(
                 on_output,
-                f"[sync] failed duration_ms={_elapsed_ms(sync_started)} error_type={exc.__class__.__name__}",
+                f"[sync] failed duration_ms={_elapsed_ms(sync_started)} error_type={exc.__class__.__name__}", "ERROR", self.log_level,
             )
             raise
         _emit(
             on_output,
             f"[sync] succeeded duration_ms={_elapsed_ms(sync_started)} "
-            f"previous_commit={result.previous_commit or 'none'} commit={result.commit}",
+            f"previous_commit={result.previous_commit or 'none'} commit={result.commit}", "INFO", self.log_level,
         )
         return result
 
@@ -89,7 +91,7 @@ class GitClient:
         workspace = self._checked_workspace(project.workspace)
         existed = workspace.exists()
         previous_commit: str | None = None
-        _emit(on_output, f"[sync] workspace_mode={'update' if existed else 'clone'}")
+        _emit(on_output, f"[sync] workspace_mode={'update' if existed else 'clone'}", "INFO", self.log_level)
 
         if existed:
             if not workspace.is_dir():
@@ -141,6 +143,7 @@ class GitClient:
                 on_output,
                 "git_metadata_check",
                 lambda: self._check_git_metadata(git_directory_path, on_output),
+                self.log_level,
             )
             previous_commit = self._run(["-C", str(workspace), "rev-parse", "HEAD"], credentials, on_output, on_process=on_process)
 
@@ -162,7 +165,7 @@ class GitClient:
                 stream_output=False,
             )
             untracked_count = _path_count(untracked)
-            _emit(on_output, f"[sync] untracked_inventory entries={untracked_count} duration_ms={_elapsed_ms(inventory_started)}")
+            _emit(on_output, f"[sync] untracked_inventory entries={untracked_count} duration_ms={_elapsed_ms(inventory_started)}", "DEBUG", self.log_level)
             inventory_started = time.monotonic()
             tracked = self._run(
                 ["-C", str(workspace), "ls-tree", "-r", "--name-only", "-z", remote_ref],
@@ -173,14 +176,14 @@ class GitClient:
                 stream_output=False,
             )
             tracked_count = _path_count(tracked)
-            _emit(on_output, f"[sync] remote_inventory entries={tracked_count} duration_ms={_elapsed_ms(inventory_started)}")
+            _emit(on_output, f"[sync] remote_inventory entries={tracked_count} duration_ms={_elapsed_ms(inventory_started)}", "DEBUG", self.log_level)
             collision_started = time.monotonic()
             has_collision = _has_path_collision(untracked, tracked)
             _emit(
                 on_output,
                 f"[sync] collision_check result={'collision' if has_collision else 'clear'} "
                 f"untracked_entries={untracked_count} remote_entries={tracked_count} "
-                f"duration_ms={_elapsed_ms(collision_started)}",
+                f"duration_ms={_elapsed_ms(collision_started)}", "DEBUG", self.log_level,
             )
             if has_collision:
                 raise GitSyncError("untracked files would be overwritten by the remote branch; move them before syncing")
@@ -260,22 +263,22 @@ class GitClient:
                 # every object path individually.
                 checked_entries += 1
         if on_output:
-            _emit(on_output, f"[sync] git_metadata entries_checked={checked_entries}")
+            _emit(on_output, f"[sync] git_metadata entries_checked={checked_entries}", "DEBUG", self.log_level)
         return checked_entries
 
     @staticmethod
-    def _timed_stage(on_output: Callable[[str], None], name: str, action: Callable):
+    def _timed_stage(on_output: Callable[[str], None], name: str, action: Callable, log_level: str = "INFO"):
         started = time.monotonic()
-        _emit(on_output, f"[stage] {name} started")
+        _emit(on_output, f"[stage] {name} started", "DEBUG", log_level)
         try:
             result = action()
         except Exception as exc:
             _emit(
                 on_output,
-                f"[stage] {name} failed duration_ms={_elapsed_ms(started)} error_type={exc.__class__.__name__}",
+                f"[stage] {name} failed duration_ms={_elapsed_ms(started)} error_type={exc.__class__.__name__}", "ERROR", log_level,
             )
             raise
-        _emit(on_output, f"[stage] {name} completed duration_ms={_elapsed_ms(started)}")
+        _emit(on_output, f"[stage] {name} completed duration_ms={_elapsed_ms(started)}", "DEBUG", log_level)
         return result
 
     def _run(
@@ -291,7 +294,7 @@ class GitClient:
     ) -> str:
         command_started = time.monotonic()
         command_name = _git_command_name(arguments)
-        _emit(on_output, f"[git] command={command_name} started timeout_seconds={self.timeout_seconds:g}")
+        _emit(on_output, f"[git] command={command_name} started timeout_seconds={self.timeout_seconds:g}", "DEBUG", self.log_level)
         environment = os.environ.copy()
         for name in list(environment):
             if name.startswith("GIT_"):
@@ -322,7 +325,7 @@ class GitClient:
                 launcher = Path(__file__).with_name("git_exec.py")
                 process = self._popen([sys.executable, str(launcher), self.binary, *arguments], **kwargs)
         except OSError as exc:
-            _emit(on_output, f"[git] command={command_name} spawn_failed duration_ms={_elapsed_ms(command_started)}")
+            _emit(on_output, f"[git] command={command_name} spawn_failed duration_ms={_elapsed_ms(command_started)}", "ERROR", self.log_level)
             raise GitSyncError(f"could not start Git CLI: {exc.strerror or exc.__class__.__name__}") from exc
         if on_process:
             try:
@@ -376,7 +379,7 @@ class GitClient:
                 if remaining <= 0:
                     self._terminate(process)
                     reader.join(timeout=2)
-                    _emit(on_output, f"[git] command={command_name} timed_out duration_ms={_elapsed_ms(command_started)}")
+                    _emit(on_output, f"[git] command={command_name} timed_out duration_ms={_elapsed_ms(command_started)}", "ERROR", self.log_level)
                     raise GitSyncError(f"Git command timed out after {self.timeout_seconds:g} seconds")
                 try:
                     line = output_queue.get(timeout=min(0.1, remaining))
@@ -400,20 +403,24 @@ class GitClient:
                     now = time.monotonic()
                     pending_progress = safe_line
                     if now - last_progress_log >= 2.0:
-                        on_output(f"[git progress] {safe_line}")
+                        _emit(on_output, f"[git progress] {safe_line}", "DEBUG", self.log_level)
                         last_progress_log = now
                         pending_progress = None
                 else:
                     if not stream_output:
                         continue
                     if pending_progress:
-                        on_output(f"[git progress] {pending_progress}")
+                        _emit(on_output, f"[git progress] {pending_progress}", "DEBUG", self.log_level)
                         pending_progress = None
-                    on_output(safe_line)
+                    level = "ERROR" if "error:" in safe_line.lower() or "fatal:" in safe_line.lower() else (
+                        "WARNING" if "warning:" in safe_line.lower() else "INFO"
+                    )
+                    _emit(on_output, safe_line, level, self.log_level)
                     if "unable to unlink old '" in safe_line.lower() and "permission denied" in safe_line.lower():
-                        on_output(
+                        _emit(
+                            on_output,
                             "[diagnostic] Git could not replace a workspace file; check the file and parent "
-                            "directory owner/write permissions, read-only mounts, and ACLs."
+                            "directory owner/write permissions, read-only mounts, and ACLs.", "WARNING", self.log_level,
                         )
 
             if pending_progress:
@@ -422,13 +429,13 @@ class GitClient:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 self._terminate(process)
-                _emit(on_output, f"[git] command={command_name} timed_out duration_ms={_elapsed_ms(command_started)}")
+                _emit(on_output, f"[git] command={command_name} timed_out duration_ms={_elapsed_ms(command_started)}", "ERROR", self.log_level)
                 raise GitSyncError(f"Git command timed out after {self.timeout_seconds:g} seconds")
             try:
                 return_code = process.wait(timeout=remaining)
             except subprocess.TimeoutExpired as exc:
                 self._terminate(process)
-                _emit(on_output, f"[git] command={command_name} timed_out duration_ms={_elapsed_ms(command_started)}")
+                _emit(on_output, f"[git] command={command_name} timed_out duration_ms={_elapsed_ms(command_started)}", "ERROR", self.log_level)
                 raise GitSyncError(f"Git command timed out after {self.timeout_seconds:g} seconds") from exc
         except Exception:
             self._terminate(process)
@@ -440,13 +447,13 @@ class GitClient:
         output_text = "\n".join(output_lines)
         output = output_text.strip()
         if return_code == 1 and allow_no_match and not output:
-            _emit(on_output, f"[git] command={command_name} completed exit_code=1 outcome=no_match duration_ms={_elapsed_ms(command_started)}")
+            _emit(on_output, f"[git] command={command_name} completed exit_code=1 outcome=no_match duration_ms={_elapsed_ms(command_started)}", "DEBUG", self.log_level)
             return ""
         if return_code != 0:
-            _emit(on_output, f"[git] command={command_name} failed exit_code={return_code} duration_ms={_elapsed_ms(command_started)}")
+            _emit(on_output, f"[git] command={command_name} failed exit_code={return_code} duration_ms={_elapsed_ms(command_started)}", "ERROR", self.log_level)
             detail = output[-2000:] if output else f"exit code {return_code}"
             raise GitSyncError(f"Git command failed (exit {return_code}): {detail}")
-        _emit(on_output, f"[git] command={command_name} completed exit_code=0 duration_ms={_elapsed_ms(command_started)}")
+        _emit(on_output, f"[git] command={command_name} completed exit_code=0 duration_ms={_elapsed_ms(command_started)}", "DEBUG", self.log_level)
         if preserve_output:
             return output_text
         return output.splitlines()[-1].strip() if output else ""
@@ -496,8 +503,12 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _emit(on_output: Callable[[str], None], message: str) -> None:
-    on_output(f"[{_utc_now()}] {message}")
+_LOG_LEVEL_RANK = {"DEBUG": 10, "INFO": 20, "WARNING": 30, "ERROR": 40}
+
+
+def _emit(on_output: Callable[[str], None], message: str, level: str = "INFO", minimum_level: str = "INFO") -> None:
+    if _LOG_LEVEL_RANK[level] >= _LOG_LEVEL_RANK.get(minimum_level, 20):
+        on_output(f"[{_utc_now()}] [{level}] {message}")
 
 
 def _elapsed_ms(started: float) -> int:
