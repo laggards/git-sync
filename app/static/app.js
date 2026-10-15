@@ -38,7 +38,7 @@
     row.append(element('th', project.name));
     row.lastElementChild.scope = 'row';
     row.append(
-      element('td', project.repository),
+      renderProjectUrl(project.url),
       renderBranchSelector(project, globallyBusy),
       element('td', project.workspace_relative),
       element('td', project.workspace_status || '未知'),
@@ -59,17 +59,20 @@
     button.addEventListener('click', () => startUpdate(project.id));
     actions.append(button);
 
-    if (project.url) {
-      const link = element('a', '访问项目');
-      link.className = 'project-link';
-      link.href = project.url;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      actions.append(link);
-    }
-
     row.append(actions);
     return row;
+  }
+
+  function renderProjectUrl(url) {
+    const cell = element('td');
+    if (url) {
+      const link = element('a', url);
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      cell.append(link);
+    }
+    return cell;
   }
 
   function renderBranchSelector(project, globallyBusy) {

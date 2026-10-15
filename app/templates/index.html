@@ -16,7 +16,7 @@
       <thead>
         <tr>
           <th scope="col">项目</th>
-          <th scope="col">仓库地址</th>
+          <th scope="col">访问地址</th>
           <th scope="col">分支</th>
           <th scope="col">工作目录</th>
           <th scope="col">工作区状态</th>
@@ -29,7 +29,7 @@
         {% for project in projects %}
         <tr data-project-id="{{ project.id }}">
           <th scope="row">{{ project.name }}</th>
-          <td>{{ project.repository }}</td>
+          <td>{% if project.url %}<a href="{{ project.url }}" target="_blank" rel="noopener noreferrer">{{ project.url }}</a>{% endif %}</td>
           <td><select class="branch-select" aria-label="&#20999;&#25442;&#39033;&#30446;&#20998;&#25903;" disabled><option value="{{ project.branch }}">{{ project.branch }}</option></select> <button class="load-branches link-button" type="button" data-project-id="{{ project.id }}">&#35835;&#21462;&#20998;&#25903;</button></td>
           <td>{{ project.workspace_relative }}</td>
           <td>{{ project.workspace_status }}</td>
@@ -37,9 +37,6 @@
           <td>等待读取</td>
           <td class="project-actions">
             <button class="link-button" type="button" disabled>&#25289;&#21462;&#20195;&#30721;</button>
-            {% if project.url %}
-            <a class="project-link" href="{{ project.url }}" target="_blank" rel="noopener noreferrer">访问项目</a>
-            {% endif %}
           </td>
         </tr>
         {% endfor %}
